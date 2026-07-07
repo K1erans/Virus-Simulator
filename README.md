@@ -1,6 +1,6 @@
 # Virus Simulator
 
-Hybrid agent + SIR virus simulation with a **SvelteKit frontend** and **Spring Boot backend**.
+Hybrid agent + SEIR virus simulation with a **SvelteKit frontend** and **Spring Boot backend**.
 
 ## Structure
 
@@ -30,37 +30,54 @@ cd backend && ./gradlew bootRun
 cd frontend && npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The home page checks both links:
+Open [http://localhost:5173](http://localhost:5173).
 
-- `GET /api/health` — REST API via Vite proxy
-- `WS /ws/simulation` — WebSocket via Vite proxy
+By default the dashboard runs the in-browser TypeScript engine. To ingest data from the Java backend, start both services and set this before starting the frontend:
 
-## API (stubs ready for you)
+```bash
+VITE_USE_MOCK=false
+```
+
+## API
 
 | Method | Path | Status |
 |--------|------|--------|
 | GET | `/api/health` | Working |
-| POST | `/api/simulation/start` | 501 — implement |
-| POST | `/api/simulation/pause` | 501 — implement |
-| POST | `/api/simulation/reset` | 501 — implement |
-| GET | `/api/simulation/config` | 501 — implement |
-| WS | `/ws/simulation` | Connected — implement tick streaming |
+| POST | `/api/simulation/start` | Starts Java simulation and returns `{ status, running }` |
+| POST | `/api/simulation/pause` | Pauses Java simulation and returns `{ status, running }` |
+| POST | `/api/simulation/reset` | Resets Java simulation and returns `{ status, running }` |
+| GET | `/api/simulation/config` | Returns current Java simulation config |
+| WS | `/ws/simulation` | Streams `connected`, `snapshot`, `complete`, and `error` messages |
 
-## Implementation guide
+## Source Layout
 
-**Backend** — add packages under `com.virussimulator`:
+**Backend**:
 
-- `model/` — `Agent`, `AgentState`, `SimulationConfig`, `SimulationSnapshot`
-- `simulation/` — `SimulationEngine`, `SirTracker`, `SimulationService`
+- `backend/src/main/java/com/virussimulator/simulation/model/` — Java protocol/domain records and mutable agent state
+- `backend/src/main/java/com/virussimulator/simulation/engine/` — deterministic Java engine
+- `backend/src/main/java/com/virussimulator/simulation/service/` — scheduler and lifecycle module
+- `backend/src/main/java/com/virussimulator/websocket/` — WebSocket sessions and snapshot broadcast
 
-**Frontend** — add under `src/lib/`:
+**Frontend**:
 
-- `components/AgentCanvas.svelte` — canvas rendering
-- `components/SirChart.svelte` — S/I/R line chart
-- `components/ControlPanel.svelte` — parameters + buttons
-- Extend `api/client.ts` with simulation REST helpers
+- `frontend/src/lib/simulation/engine.ts` — frontend engine interface
+- `frontend/src/lib/simulation/localEngine.ts` — in-browser adapter
+- `frontend/src/lib/simulation/remoteEngine.ts` — Java REST/WebSocket adapter
+- `frontend/src/lib/stores/simulation.svelte.ts` — dashboard session state
+- `frontend/src/lib/types/protocol.ts` — WebSocket message contract
+
+## Test and Check
+
+```bash
+cd backend && ./gradlew test
+```
+
+```bash
+cd frontend && npm test && npm run check
+```
 
 ## Dev notes
 
 - CORS allows `http://localhost:5173` on the backend
 - Vite proxies `/api` and `/ws` to `localhost:8080` so the frontend uses relative URLs in dev
+- `CONTEXT.md` documents the domain vocabulary, source switch, and simulation invariants
