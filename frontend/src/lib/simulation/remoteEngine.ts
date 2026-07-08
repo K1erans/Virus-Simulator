@@ -82,17 +82,27 @@ export function createRemoteEngine(
 		notify();
 	}
 
-	function applyBatch(message: BatchMessage) {
-		state = {
-			agents: message.agents,
-			snapshot: message.snapshot,
-			history: appendDays(state.history, message.days),
-			events: [...state.events, ...message.events],
-			stats: message.stats,
-			links: message.links
-		};
-		notify();
+function applyBatch(message: BatchMessage) {
+	const mergedEvents = [...state.events];
+	const seen = new Set(mergedEvents.map((event) => `${event.day}:${event.message}`));
+	for (const event of message.events) {
+		const key = `${event.day}:${event.message}`;
+		if (!seen.has(key)) {
+			seen.add(key);
+			mergedEvents.push(event);
+		}
 	}
+
+	state = {
+		agents: message.agents,
+		snapshot: message.snapshot,
+		history: appendDays(state.history, message.days),
+		events: mergedEvents,
+		stats: message.stats,
+		links: message.links
+	};
+	notify();
+}
 
 	function closeSocket() {
 		if (socket) {
