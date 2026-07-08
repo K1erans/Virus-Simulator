@@ -68,6 +68,10 @@ public class Agent {
 		this.infectiousDays = infectiousDays;
 	}
 
+	public Agent copy() {
+		return new Agent(id, x, y, state, exposedDays, infectiousDays);
+	}
+
 	@Override
 	public boolean equals(Object other) {
 		if (this == other) {
