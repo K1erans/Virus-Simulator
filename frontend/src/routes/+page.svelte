@@ -1,65 +1,107 @@
-<style src="./+page.css"></style>
-
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { connectSimulationSocket, fetchHealth } from '$lib/api/client';
-
-	let apiStatus = $state<'checking' | 'connected' | 'error'>('checking');
-	let apiMessage = $state('');
-	let wsStatus = $state<'idle' | 'connecting' | 'connected' | 'error'>('idle');
-	let wsMessage = $state('');
-
-	onMount(() => {
-		fetchHealth()
-			.then((data) => {
-				apiStatus = 'connected';
-				apiMessage = `${data.service} — ${data.status}`;
-			})
-			.catch((error: Error) => {
-				apiStatus = 'error';
-				apiMessage = error.message;
-			});
-
-		wsStatus = 'connecting';
-		const socket = connectSimulationSocket(
-			(data) => {
-				wsStatus = 'connected';
-				if (typeof data === 'object' && data !== null && 'message' in data) {
-					wsMessage = String((data as { message: string }).message);
-				} else {
-					wsMessage = JSON.stringify(data);
-				}
-			},
-			() => {
-				wsStatus = 'error';
-				wsMessage = 'WebSocket connection failed';
-			}
-		);
-
-		return () => socket.close();
-	});
+	import DashboardHeader from '$lib/components/dashboard/DashboardHeader.svelte';
+	import SimulationSidebar from '$lib/components/dashboard/SimulationSidebar.svelte';
+	import OverviewCards from '$lib/components/dashboard/OverviewCards.svelte';
+	import AgentCanvas from '$lib/components/dashboard/AgentCanvas.svelte';
+	import SeirChart from '$lib/components/dashboard/SeirChart.svelte';
+	import StatisticsPanel from '$lib/components/dashboard/StatisticsPanel.svelte';
+	import EventLog from '$lib/components/dashboard/EventLog.svelte';
+	import RealtimeMetrics from '$lib/components/dashboard/RealtimeMetrics.svelte';
+	import { simulation } from '$lib/stores/simulation.svelte';
 </script>
 
-<main>
-	<h1>Virus Simulator</h1>
-	<p>Frontend and backend are linked. Implement the simulation from here.</p>
+<div class="dashboard">
+	<DashboardHeader />
 
-	<section>
-		<h2>Connection status</h2>
-		<ul>
-			<li class={apiStatus}>REST API: {apiStatus} — {apiMessage || '…'}</li>
-			<li class={wsStatus}>WebSocket: {wsStatus} — {wsMessage || '…'}</li>
-		</ul>
-	</section>
+	<div class="layout-body">
+		<SimulationSidebar />
 
-	<section>
-		<h2>Where to implement</h2>
-		<ul>
-			<li><code>backend/src/main/java/com/virussimulator/simulation/</code> — simulation engine</li>
-			<li><code>backend/.../controller/SimulationController.java</code> — start / pause / reset</li>
-			<li><code>backend/.../websocket/SimulationWebSocketHandler.java</code> — tick streaming</li>
-			<li><code>frontend/src/lib/components/</code> — canvas, chart, controls</li>
-		</ul>
-	</section>
-</main>
+		<main class="content">
+			{#if simulation.viewOptions.populationStats}
+				<OverviewCards />
+			{/if}
 
+			<div class="charts-row">
+				{#if simulation.viewOptions.agentView}
+					<div class="chart-cell">
+						<AgentCanvas />
+					</div>
+				{/if}
+				{#if simulation.viewOptions.seirCurves}
+					<div class="chart-cell">
+						<SeirChart />
+					</div>
+				{/if}
+			</div>
+
+			{#if simulation.viewOptions.populationStats}
+				<StatisticsPanel />
+			{/if}
+
+			<div class="bottom-row">
+				<div class="bottom-cell">
+					<EventLog />
+				</div>
+				<div class="bottom-cell">
+					<RealtimeMetrics />
+				</div>
+			</div>
+		</main>
+	</div>
+</div>
+
+<style>
+	.dashboard {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+	}
+
+	.layout-body {
+		display: grid;
+		grid-template-columns: var(--sidebar-width) 1fr;
+		flex: 1;
+	}
+
+	.content {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		padding: 1rem 1.5rem;
+		overflow-x: hidden;
+	}
+
+	.charts-row {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1rem;
+	}
+
+	.chart-cell {
+		min-width: 0;
+	}
+
+	.bottom-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1rem;
+	}
+
+	.bottom-cell {
+		min-width: 0;
+	}
+
+	@media (max-width: 1100px) {
+		.layout-body {
+			grid-template-columns: 1fr;
+		}
+
+		.charts-row {
+			grid-template-columns: 1fr;
+		}
+
+		.bottom-row {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
