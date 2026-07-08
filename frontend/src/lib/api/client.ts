@@ -1,4 +1,5 @@
 import type {
+	HistoryPoint,
 	SimulationConfig,
 	SimulationStatusResponse,
 	SnapshotMessage
@@ -45,8 +46,12 @@ export async function pauseSimulation(): Promise<SimulationStatusResponse> {
 	return response.json();
 }
 
-export async function resetSimulation(): Promise<SimulationStatusResponse> {
-	const response = await fetch('/api/simulation/reset', { method: 'POST' });
+export async function resetSimulation(config: SimulationConfig): Promise<SimulationStatusResponse> {
+	const response = await fetch('/api/simulation/reset', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(config)
+	});
 
 	if (!response.ok) {
 		throw new Error(`Reset simulation failed: ${response.status}`);
@@ -60,6 +65,17 @@ export async function fetchSimulationConfig(): Promise<SimulationConfig> {
 
 	if (!response.ok) {
 		throw new Error(`Fetch config failed: ${response.status}`);
+	}
+
+	return response.json();
+}
+
+/** Full server history with agent cells — use when scrubbing / going back in time. */
+export async function fetchSimulationHistory(): Promise<HistoryPoint[]> {
+	const response = await fetch('/api/simulation/history');
+
+	if (!response.ok) {
+		throw new Error(`Fetch history failed: ${response.status}`);
 	}
 
 	return response.json();
