@@ -16,32 +16,68 @@ public record SnapshotMessage(
 		List<Agent> agents,
 		SimulationSnapshot snapshot,
 		List<SimulationSnapshot> history,
+		List<DayDelta> days,
 		List<SimulationEvent> events,
 		SimulationStats stats,
 		List<TransmissionLink> links,
 		String message) {
 
 	public static SnapshotMessage connected(String message) {
-		return new SnapshotMessage("connected", null, null, null, null, null, null, message);
+		return new SnapshotMessage("connected", null, null, null, null, null, null, null, message);
 	}
 
-	public static SnapshotMessage snapshot(SimulationState state) {
-		return fromState("snapshot", state, null);
-	}
-
-	public static SnapshotMessage complete(SimulationState state, String message) {
-		return fromState("complete", state, message);
-	}
-
-	private static SnapshotMessage fromState(String type, SimulationState state, String message) {
+	/** Live sync without full agent-cell history (counts series only). */
+	public static SnapshotMessage live(SimulationState state, List<DayDelta> countsSeries) {
 		return new SnapshotMessage(
-				type,
+				"live",
 				state.getAgents(),
-				state.getSnapshot(),
-				state.getHistory(),
+				countsOnly(state.getSnapshot()),
+				null,
+				countsSeries,
+				state.getEvents(),
+				state.getStats(),
+				state.getLinks(),
+				null);
+	}
+
+	/** Batched day advances: counts deltas + latest live fields. */
+	public static SnapshotMessage batch(
+			SimulationState state,
+			List<DayDelta> days,
+			List<SimulationEvent> newEvents) {
+		return new SnapshotMessage(
+				"batch",
+				state.getAgents(),
+				countsOnly(state.getSnapshot()),
+				null,
+				days,
+				newEvents,
+				state.getStats(),
+				state.getLinks(),
+				null);
+	}
+
+	public static SnapshotMessage complete(SimulationState state, String message, List<DayDelta> days) {
+		return new SnapshotMessage(
+				"complete",
+				state.getAgents(),
+				countsOnly(state.getSnapshot()),
+				null,
+				days,
 				state.getEvents(),
 				state.getStats(),
 				state.getLinks(),
 				message);
+	}
+
+	private static SimulationSnapshot countsOnly(SimulationSnapshot snapshot) {
+		return new SimulationSnapshot(
+				snapshot.day(),
+				snapshot.S(),
+				snapshot.E(),
+				snapshot.I(),
+				snapshot.R(),
+				snapshot.deaths(),
+				null);
 	}
 }

@@ -1,13 +1,29 @@
 import type { SimulationEngine } from '$lib/simulation/engine';
-import { createEngine, makeRng, tickEngine } from '$lib/simulation/mockEngine';
+import { createEngine, tickEngine } from '$lib/simulation/mockEngine';
 import type { SimulationConfig, SimulationState } from '$lib/types/simulation';
 
 const TICK_MS = 200;
 
+function configsEqual(a: SimulationConfig, b: SimulationConfig): boolean {
+	return (
+		a.populationSize === b.populationSize &&
+		a.initialInfectedPct === b.initialInfectedPct &&
+		a.transmissionRate === b.transmissionRate &&
+		a.incubationPeriod === b.incubationPeriod &&
+		a.infectiousPeriod === b.infectiousPeriod &&
+		a.recoveryRate === b.recoveryRate &&
+		a.randomSeed === b.randomSeed &&
+		a.modelType === b.modelType &&
+		a.maxDays === b.maxDays
+	);
+}
+
 export function createLocalEngine(initialConfig: SimulationConfig): SimulationEngine {
-	let state = createEngine(initialConfig);
-	let rng = makeRng(initialConfig.randomSeed);
+	let bootstrap = createEngine(initialConfig);
+	let state = bootstrap.state;
+	let rng = bootstrap.rng;
 	let runtime = { firstTransmissionLogged: false };
+	let activeConfig = { ...initialConfig };
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 	const listeners = new Set<(state: SimulationState) => void>();
 
@@ -28,27 +44,46 @@ export function createLocalEngine(initialConfig: SimulationConfig): SimulationEn
 		clearTickInterval();
 	}
 
+	function rebuild(config: SimulationConfig) {
+		activeConfig = { ...config };
+		bootstrap = createEngine(activeConfig);
+		state = bootstrap.state;
+		rng = bootstrap.rng;
+		runtime = { firstTransmissionLogged: false };
+	}
+
 	function doTick() {
-		if (state.snapshot.day >= initialConfig.maxDays) {
+		if (state.snapshot.day >= activeConfig.maxDays) {
 			void pause();
-			state.events = [
-				...state.events,
-				{
-					day: state.snapshot.day,
-					message: `Simulation complete (${initialConfig.maxDays} days)`
-				}
-			];
-			notify();
+			const message = `Simulation complete (${activeConfig.maxDays} days)`;
+			const alreadyLogged = state.events.some((event) => event.message === message);
+			if (!alreadyLogged) {
+				state.events = [
+					...state.events,
+					{
+						day: state.snapshot.day,
+						message
+					}
+				];
+				notify();
+			}
 			return;
 		}
 
-		tickEngine(state, initialConfig, rng, runtime);
+		tickEngine(state, activeConfig, rng, runtime);
 		notify();
 	}
 
 	return {
 		async start(config) {
-			initialConfig = { ...config };
+			const needsRebuild =
+				state.snapshot.day >= config.maxDays || !configsEqual(config, activeConfig);
+
+			if (needsRebuild) {
+				rebuild(config);
+			} else {
+				activeConfig = { ...config };
+			}
 
 			if (state.snapshot.day === 0 && state.events.length <= 1) {
 				state.events = [...state.events, { day: 0, message: 'Simulation started' }];
@@ -63,10 +98,7 @@ export function createLocalEngine(initialConfig: SimulationConfig): SimulationEn
 
 		async reset(config) {
 			await pause();
-			initialConfig = { ...config };
-			state = createEngine(initialConfig);
-			rng = makeRng(initialConfig.randomSeed);
-			runtime = { firstTransmissionLogged: false };
+			rebuild(config);
 			notify();
 		},
 
