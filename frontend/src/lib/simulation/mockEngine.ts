@@ -16,15 +16,28 @@ import type { SimulationSnapshot } from '$lib/types/snapshot';
 type EngineAgent = Agent & { id: number };
 type SnapshotWithCells = SimulationSnapshot & { cells: Agent[] };
 
+export type EngineBootstrap = {
+	state: SimulationState;
+	rng: () => number;
+};
+
 function seededRandom(seed: number) {
-	let s = seed;
+	let s = seed === 0 ? 1 : seed;
 	return () => {
 		s = (s * 16807) % 2147483647;
 		return (s - 1) / 2147483646;
 	};
 }
 
-export function createEngine(config: SimulationConfig): SimulationState {
+function copyAgents(agents: Agent[]): Agent[] {
+	return agents.map((agent) => ({ ...agent }));
+}
+
+export function createEngine(config: SimulationConfig): EngineBootstrap {
+	if (config.populationSize < 1) {
+		throw new Error('populationSize must be at least 1');
+	}
+
 	const rng = seededRandom(config.randomSeed);
 	const agents: EngineAgent[] = [];
 
@@ -39,22 +52,28 @@ export function createEngine(config: SimulationConfig): SimulationState {
 		});
 	}
 
-	const initialInfected = Math.max(1, Math.round(config.populationSize * (config.initialInfectedPct / 100)));
+	const initialInfected = Math.min(
+		agents.length,
+		Math.max(1, Math.round(config.populationSize * (config.initialInfectedPct / 100)))
+	);
 	for (let i = 0; i < initialInfected; i++) {
 		setInfectionState(agents[i], i % 3 === 0 ? 'I' : 'E', config, rng, true);
 	}
 
 	const counts = countStates(agents);
 	const snapshot = { day: 0, ...counts, deaths: 0 };
-	const snapshotWithCells: SnapshotWithCells = { ...snapshot, cells: agents };
+	const snapshotWithCells: SnapshotWithCells = { ...snapshot, cells: copyAgents(agents) };
 
 	return {
-		agents,
-		snapshot: snapshotWithCells,
-		history: [snapshotWithCells],
-		events: [{ day: 0, message: 'Simulation initialized' }],
-		stats: computeStats(snapshot, config, 0, 0),
-		links: []
+		state: {
+			agents,
+			snapshot: snapshotWithCells,
+			history: [snapshotWithCells],
+			events: [{ day: 0, message: 'Simulation initialized' }],
+			stats: computeStats(snapshot, config, 0, 0),
+			links: []
+		},
+		rng
 	};
 }
 
@@ -74,7 +93,7 @@ export function tickEngine(
 	const prevPeak = state.stats.peakInfectious;
 	const snapshot = { day, ...counts, deaths: state.snapshot.deaths };
 	const stats = computeStats(snapshot, config, newInfections, prevPeak);
-	const snapshotWithCells: SnapshotWithCells = { ...snapshot, cells: state.agents };
+	const snapshotWithCells: SnapshotWithCells = { ...snapshot, cells: copyAgents(state.agents) };
 
 	stats.peakInfectiousDay = snapshot.I > prevPeak ? day : state.stats.peakInfectiousDay;
 	state.snapshot = snapshotWithCells;

@@ -18,23 +18,45 @@ const config: SimulationConfig = {
 
 describe('simulation day step', () => {
 	it('creates deterministic initial agents from the configured seed', () => {
-		const first = createEngine(config);
-		const second = createEngine(config);
+		const first = createEngine(config).state;
+		const second = createEngine(config).state;
 
 		expect(first.agents.slice(0, 5)).toEqual(second.agents.slice(0, 5));
 		expect(first.snapshot).toMatchObject({ day: 0, S: 98, E: 1, I: 1, R: 0, deaths: 0 });
 	});
 
-	it('ticks deterministically with the same seed and runtime state', () => {
+	it('continues the PRNG stream from createEngine into ticks', () => {
+		const { state, rng } = createEngine(config);
+		const before = state.agents.map((agent) => ({ ...agent }));
+
+		tickEngine(state, config, rng, { firstTransmissionLogged: false });
+
+		expect(state.snapshot.day).toBe(1);
+		expect(state.history[0].cells).toEqual(before);
+		expect(state.history[0].cells).not.toBe(state.agents);
+		expect(state.history[1].cells).not.toBe(state.agents);
+	});
+
+	it('ticks deterministically with the same continued RNG stream', () => {
 		const first = createEngine(config);
 		const second = createEngine(config);
 
-		tickEngine(first, config, makeRng(config.randomSeed), { firstTransmissionLogged: false });
-		tickEngine(second, config, makeRng(config.randomSeed), { firstTransmissionLogged: false });
+		tickEngine(first.state, config, first.rng, { firstTransmissionLogged: false });
+		tickEngine(second.state, config, second.rng, { firstTransmissionLogged: false });
 
-		expect(first.snapshot).toEqual(second.snapshot);
-		expect(first.stats).toEqual(second.stats);
-		expect(first.links).toEqual(second.links);
+		expect(first.state.snapshot).toEqual(second.state.snapshot);
+		expect(first.state.stats).toEqual(second.state.stats);
+		expect(first.state.links).toEqual(second.state.links);
+	});
+
+	it('normalizes seed zero so the LCG advances', () => {
+		const rng = makeRng(0);
+		const first = rng();
+		const second = rng();
+
+		expect(first).not.toBe(second);
+		expect(first).toBeGreaterThanOrEqual(0);
+		expect(first).toBeLessThan(1);
 	});
 
 	it('computes r0 from transmission rate and infectious period', () => {

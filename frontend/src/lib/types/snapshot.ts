@@ -1,4 +1,5 @@
-import type { Agent } from "./agent";
+import type { Agent } from './agent';
+
 export interface SimulationSnapshot {
 	day: number;
 	S: number;
@@ -6,7 +7,7 @@ export interface SimulationSnapshot {
 	I: number;
 	R: number;
 	deaths: number;
-	cells: Agent[];
+	cells?: Agent[] | null;
 }
 
 export type HistoryPoint = SimulationSnapshot;

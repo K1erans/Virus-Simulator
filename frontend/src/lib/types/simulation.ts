@@ -4,4 +4,4 @@ export type { HistoryPoint, SimulationSnapshot } from './snapshot';
 export type { SimulationStats } from './stats';
 export type { SimulationEvent } from './event';
 export type { SimulationState } from './engine';
-export type { SnapshotMessage, SnapshotPayload, SimulationStatusResponse } from './protocol';
+export type { DayDelta, SnapshotMessage, SnapshotPayload, SimulationStatusResponse } from './protocol';

@@ -27,12 +27,17 @@ const defaultViewOptions: ViewOptions = {
 type EngineSource = 'local' | 'backend';
 type EngineStatus = {
 	connected: boolean;
-	error: string | null;
+	error?: string | null;
 };
 
 function updateStatus(status: EngineStatus) {
 	simulation.connected = status.connected;
-	simulation.error = status.error;
+	if (status.error) {
+		simulation.error = status.error ?? null;
+	}
+	if (!status.connected) {
+		simulation.running = false;
+	}
 }
 
 const engine: SimulationEngine = USE_MOCK
@@ -48,12 +53,12 @@ function syncFromEngine(state: SimulationState) {
 		return;
 	}
 
-	simulation.agents = state.agents;
-	simulation.snapshot = state.snapshot;
-	simulation.history = state.history;
-	simulation.events = state.events;
-	simulation.stats = state.stats;
-	simulation.links = state.links;
+	simulation.agents = [...state.agents];
+	simulation.snapshot = { ...state.snapshot };
+	simulation.history = [...state.history];
+	simulation.events = [...state.events];
+	simulation.stats = { ...state.stats };
+	simulation.links = [...state.links];
 
 	if (state.snapshot.day >= simulation.config.maxDays) {
 		simulation.running = false;
@@ -103,6 +108,7 @@ export async function start() {
 		simulation.running = true;
 	} catch (error) {
 		simulation.error = errorMessage(error);
+		simulation.running = false;
 	} finally {
 		simulation.loading = false;
 	}
