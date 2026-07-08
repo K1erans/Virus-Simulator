@@ -32,11 +32,14 @@ cd frontend && npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-By default the dashboard runs the in-browser TypeScript engine. To ingest data from the Java backend, start both services and set this before starting the frontend:
+By default the dashboard runs the in-browser TypeScript engine. To ingest data from the Java backend, start both services and export the Vite flag (a bare assignment is not inherited by `npm run dev`):
 
 ```bash
-VITE_USE_MOCK=false
+export VITE_USE_MOCK=false
+cd frontend && npm run dev
 ```
+
+Or put `VITE_USE_MOCK=false` in `frontend/.env`.
 
 ## API
 
@@ -45,9 +48,12 @@ VITE_USE_MOCK=false
 | GET | `/api/health` | Working |
 | POST | `/api/simulation/start` | Starts Java simulation and returns `{ status, running }` |
 | POST | `/api/simulation/pause` | Pauses Java simulation and returns `{ status, running }` |
-| POST | `/api/simulation/reset` | Resets Java simulation and returns `{ status, running }` |
+| POST | `/api/simulation/reset` | Resets Java simulation (optional config body) and returns `{ status, running }` |
 | GET | `/api/simulation/config` | Returns current Java simulation config |
-| WS | `/ws/simulation` | Streams `connected`, `snapshot`, `complete`, and `error` messages |
+| GET | `/api/simulation/history` | Full history with agent cells (for scrubbing / go-back) |
+| WS | `/ws/simulation` | Streams `connected`, `live`, `batch`, `complete`, and `error` messages |
+
+Live WebSocket traffic sends batched day-count deltas (no full history). Fetch `/api/simulation/history` when the UI needs point-in-time agent cells.
 
 ## Source Layout
 

@@ -52,25 +52,26 @@ flowchart TB
 
 The dashboard defaults to the local TypeScript engine while the Java backend is still being validated.
 
-Use the Java backend by setting:
+Use the Java backend by exporting the Vite flag (a bare assignment is not inherited by `npm run dev`):
 
 ```bash
-VITE_USE_MOCK=false
+export VITE_USE_MOCK=false
 ```
 
-Then restart the frontend. In backend mode:
+Or put `VITE_USE_MOCK=false` in `frontend/.env`, then restart the frontend. In backend mode:
 
-- `POST /api/simulation/start` starts the Java simulation.
-- `POST /api/simulation/pause` pauses the scheduler.
-- `POST /api/simulation/reset` resets the current Java config.
+- `POST /api/simulation/start` starts the Java simulation (optional partial config body merges into current config).
+- `POST /api/simulation/pause` pauses the scheduler and flushes any pending batch.
+- `POST /api/simulation/reset` resets with an optional config body.
 - `GET /api/simulation/config` returns the current Java config.
-- `WS /ws/simulation` streams `snapshot`, `complete`, `connected`, and `error` messages.
+- `GET /api/simulation/history` returns full history with agent cells for scrubbing / go-back.
+- `WS /ws/simulation` streams `connected`, `live`, `batch`, `complete`, and `error` messages.
 
 ## Invariants
 
 - The local and Java engines use the same seeded LCG and SEIR rules.
 - The simulation runs one simulated day per tick.
-- Ticks run every 200ms.
+- Ticks run every 200ms; the backend batches 5 ticks (~1s) into one WebSocket `batch` message.
 - Runs stop at the configured `maxDays` value.
 - R0 is `transmissionRate * infectiousPeriod`.
 - Mortality is not implemented; `deaths` remains 0 and is not shown in the dashboard.
@@ -79,4 +80,4 @@ Then restart the frontend. In backend mode:
 
 ## Payload Notes
 
-The backend currently streams full agent arrays every tick. This is acceptable for the development prototype, but large populations will eventually need delta encoding or a lower tick frequency.
+Live WebSocket traffic sends latest agents plus counts-only day deltas (`days`). Full agent-cell history stays on the backend until `GET /api/simulation/history` is requested (e.g. when the user scrubs back in time).
