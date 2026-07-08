@@ -1,13 +1,17 @@
 package com.virussimulator.controller;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.virussimulator.simulation.dto.SimulationConfigPatch;
 import com.virussimulator.simulation.dto.SimulationStatusResponse;
 import com.virussimulator.simulation.model.SimulationConfig;
+import com.virussimulator.simulation.model.SimulationSnapshot;
 import com.virussimulator.simulation.service.SimulationService;
 
 @RestController
@@ -21,7 +25,7 @@ public class SimulationController {
 	}
 
 	@PostMapping("/start")
-	public SimulationStatusResponse start(@RequestBody(required = false) SimulationConfig config) {
+	public SimulationStatusResponse start(@RequestBody(required = false) SimulationConfigPatch config) {
 		return simulationService.start(config);
 	}
 
@@ -31,12 +35,17 @@ public class SimulationController {
 	}
 
 	@PostMapping("/reset")
-	public SimulationStatusResponse reset() {
-		return simulationService.reset();
+	public SimulationStatusResponse reset(@RequestBody(required = false) SimulationConfigPatch config) {
+		return simulationService.reset(config);
 	}
 
 	@GetMapping("/config")
 	public SimulationConfig config() {
 		return simulationService.getConfig();
+	}
+
+	@GetMapping("/history")
+	public List<SimulationSnapshot> history() {
+		return simulationService.getHistory();
 	}
 }

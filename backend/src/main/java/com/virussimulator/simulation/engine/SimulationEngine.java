@@ -19,7 +19,11 @@ public final class SimulationEngine {
 	private SimulationEngine() {
 	}
 
-	public static SimulationState createEngine(SimulationConfig config) {
+	public static EngineBootstrap createEngine(SimulationConfig config) {
+		if (config.populationSize() < 1) {
+			throw new IllegalArgumentException("populationSize must be at least 1");
+		}
+
 		SeededRandom rng = new SeededRandom(config.randomSeed());
 		List<Agent> agents = new ArrayList<>(config.populationSize());
 
@@ -30,6 +34,7 @@ public final class SimulationEngine {
 		int initialInfected = Math.max(
 				1,
 				(int) Math.round(config.populationSize() * (config.initialInfectedPct() / 100.0)));
+		initialInfected = Math.min(initialInfected, agents.size());
 		for (int i = 0; i < initialInfected; i++) {
 			setInfectionState(
 					agents.get(i),
@@ -47,11 +52,11 @@ public final class SimulationEngine {
 				counts.infectious(),
 				counts.recovered(),
 				0,
-				agents);
+				copyAgents(agents));
 		List<SimulationSnapshot> history = new ArrayList<>();
 		history.add(snapshot);
 
-		return new SimulationState(
+		SimulationState state = new SimulationState(
 				agents,
 				snapshot,
 				history,
@@ -59,6 +64,8 @@ public final class SimulationEngine {
 				computeStats(snapshot, config, 0, 0, 0),
 				new ArrayList<>(),
 				false);
+
+		return new EngineBootstrap(state, rng);
 	}
 
 	public static List<SimulationEvent> tickEngine(
@@ -102,7 +109,7 @@ public final class SimulationEngine {
 				counts.infectious(),
 				counts.recovered(),
 				engine.getSnapshot().deaths(),
-				engine.getAgents());
+				copyAgents(engine.getAgents()));
 
 		engine.setSnapshot(snapshot);
 		engine.getHistory().add(snapshot);
@@ -121,6 +128,29 @@ public final class SimulationEngine {
 
 		engine.getEvents().addAll(newEvents);
 		return newEvents;
+	}
+
+	public static List<Agent> copyAgents(List<Agent> agents) {
+		List<Agent> copies = new ArrayList<>(agents.size());
+		for (Agent agent : agents) {
+			copies.add(agent.copy());
+		}
+		return copies;
+	}
+
+	public static List<SimulationSnapshot> copyHistory(List<SimulationSnapshot> history) {
+		List<SimulationSnapshot> copies = new ArrayList<>(history.size());
+		for (SimulationSnapshot snapshot : history) {
+			copies.add(new SimulationSnapshot(
+					snapshot.day(),
+					snapshot.S(),
+					snapshot.E(),
+					snapshot.I(),
+					snapshot.R(),
+					snapshot.deaths(),
+					snapshot.cells() == null ? null : copyAgents(snapshot.cells())));
+		}
+		return copies;
 	}
 
 	private static void setInfectionState(
@@ -217,7 +247,9 @@ public final class SimulationEngine {
 			int previousPeak,
 			int previousPeakDay) {
 		int totalInfected = snapshot.E() + snapshot.I() + snapshot.R();
-		double attackRate = ((double) totalInfected / config.populationSize()) * 100.0;
+		double attackRate = config.populationSize() == 0
+				? 0.0
+				: ((double) totalInfected / config.populationSize()) * 100.0;
 		int activeCases = snapshot.E() + snapshot.I();
 		double recoveryRatePct = totalInfected > 0 ? ((double) snapshot.R() / totalInfected) * 100.0 : 0.0;
 		int peakInfectious = Math.max(previousPeak, snapshot.I());

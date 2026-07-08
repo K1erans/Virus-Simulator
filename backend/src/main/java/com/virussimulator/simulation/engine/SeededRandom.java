@@ -9,7 +9,7 @@ public class SeededRandom {
 	private long seed;
 
 	public SeededRandom(long seed) {
-		this.seed = seed;
+		this.seed = seed == 0 ? 1 : seed;
 	}
 
 	public double nextDouble() {
