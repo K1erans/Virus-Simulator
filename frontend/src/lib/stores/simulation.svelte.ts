@@ -32,9 +32,14 @@ type EngineStatus = {
 
 function updateStatus(status: EngineStatus) {
 	simulation.connected = status.connected;
-	if (status.error) {
+
+	if ('error' in status) {
 		simulation.error = status.error ?? null;
+	} else if (status.connected) {
+		// Clear stale errors on reconnect.
+		simulation.error = null;
 	}
+
 	if (!status.connected) {
 		simulation.running = false;
 	}
