@@ -2,4 +2,4 @@
 
 This branch is intentionally empty.
 
-All project code lives on the [`prototype`](https://github.com/K1erans/Virus-Simulator/tree/prototype) branch.
+All prototype project code lives on the [`prototype`](https://github.com/K1erans/Virus-Simulator/tree/prototype) branch.
